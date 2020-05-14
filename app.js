@@ -1,60 +1,51 @@
 const Discord = require('discord.js');
+const ytdl = require('ytdl-core');
+const commands = require('./commands.json');
+
 const client = new Discord.Client();
-
-const prefix = 'yap';
-
-const connections = {};
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
-    client.user.setActivity(`Capturing ${client.guilds.size} clips`);
+    client.user.setActivity(`Memeing epicly!`);
 });
 
 client.on('guildCreate', (guild) => {
     // This event triggers when the bot joins a guild.
     console.log(`New guild joined: ${guild.name} (id: ${guild.id}). This guild has ${guild.memberCount} members!`);
-    client.user.setActivity(`Capturing ${client.guilds.size} clips`);
 });
 
 client.on('guildDelete', (guild) => {
     // this event triggers when the bot is removed from a guild.
     console.log(`I have been removed from: ${guild.name} (id: ${guild.id})`);
-    client.user.setActivity(`Capturing ${client.guilds.size} clips`);
 });
 
 client.on('message', async (msg) => {
     const { content, member } = msg;
     if (msg.author.bot) return;
 
-    if (content.indexOf(prefix) !== 0) return;
+    let keywordMatched = false;
 
-    const args = content.slice(prefix.length).trim().split(/ +/g);
-    const command = args.shift().toLowerCase();
+    commands.forEach((command) => {
+        command.keywords.forEach(async (keyword) => {
+            if (!keywordMatched && content.toLowerCase().indexOf(keyword.toLowerCase()) != -1) {
+                if (member.voice.channel) {
+                    const connection = await member.voice.channel.join();
 
-    if (command == 'start') {
-        if (member.voice.channel) {
-            const channel = member.voice.channel;
-            const connection = await channel.join();
+                    try {
+                        const dispatcher = connection.play(ytdl(command.clip, { filter: 'audioonly' }));
 
-            connections[channel.id] = connection;
-        } else {
-            msg.reply('Your need to join a voice channel first!');
-        }
-    }
+                        dispatcher.on('finish', () => {
+                            connection.disconnect();
+                        });
+                    } catch {
+                        connection.disconnect();
+                    }
 
-    if (command == 'stop') {
-        if (member.voice.channel) {
-            const channel = member.voice.channel;
-            if (connections[channel.id]) {
-                connections[channel.id].disconnect();
-            } else {
-                msg.reply("I'm not currently in your channel!");
+                    keywordMatched = true;
+                }
             }
-        }
-    }
-
-    if (command.indexOf('clip') !== 0) {
-    }
+        });
+    });
 });
 
-client.login('');
+client.login('NzA5ODc1MjIwOTkwOTE4Njc3.Xr2Piw.6OQDoGbqgLnxdkLeKkqNkCC6upU');
