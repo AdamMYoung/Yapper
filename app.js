@@ -1,8 +1,11 @@
 const Discord = require('discord.js');
 const ytdl = require('ytdl-core');
-const commands = require('./commands.json');
+
+var { validateClip, validateKeywords } = require('./clips/validator');
+const { getClips, addEntry } = require('./clips/clipManager');
 
 const client = new Discord.Client();
+const commandPrefix = '-memer';
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -23,29 +26,65 @@ client.on('message', async (msg) => {
     const { content, member } = msg;
     if (msg.author.bot) return;
 
-    let keywordMatched = false;
+    //Check for commands.
+    if (content.indexOf(commandPrefix) != -1) {
+        const args = content.split(' ');
+        const command = args[1];
+        const keywords = [];
+        const clip = content.substring(content.lastIndexOf('"') + 1).trimLeft();
 
-    commands.forEach((command) => {
-        command.keywords.forEach(async (keyword) => {
-            if (!keywordMatched && content.toLowerCase().indexOf(keyword.toLowerCase()) != -1) {
-                if (member.voice.channel) {
-                    const connection = await member.voice.channel.join();
+        content
+            .substring(content.indexOf('"') + 1, content.lastIndexOf('"'))
+            .split(',')
+            .forEach((keyword) => {
+                keywords.push(keyword.trimLeft());
+            });
 
-                    try {
-                        const dispatcher = connection.play(ytdl(command.clip, { filter: 'audioonly' }));
-
-                        dispatcher.on('finish', () => {
-                            connection.disconnect();
-                        });
-                    } catch {
-                        connection.disconnect();
-                    }
-
-                    keywordMatched = true;
-                }
+        if (command == 'add') {
+            const keywordValidation = validateKeywords(keywords);
+            if (keywordValidation != null) {
+                msg.reply(keywordValidation);
+                return;
             }
+
+            validateClip(clip, (isValid) => {
+                if (!isValid) {
+                    msg.reply(
+                        "This clip isn't valid or may already exist. Please ensure it's a valid YouTube link, and is under 15 seconds."
+                    );
+                    return;
+                } else {
+                    addEntry(keywords, clip);
+                    msg.reply(`Added! Keywords: "${keywords}" will play the clip: ${clip}`);
+                }
+            });
+        }
+    } else {
+        //Check keywords for clip
+        let keywordMatched = false;
+
+        getClips().forEach((command) => {
+            command.keywords.forEach(async (keyword) => {
+                if (!keywordMatched && content.toLowerCase().indexOf(keyword.toLowerCase()) != -1) {
+                    if (member.voice.channel) {
+                        const connection = await member.voice.channel.join();
+
+                        try {
+                            const dispatcher = connection.play(ytdl(command.clip, { filter: 'audioonly' }));
+
+                            dispatcher.on('finish', () => {
+                                connection.disconnect();
+                            });
+                        } catch {
+                            connection.disconnect();
+                        }
+
+                        keywordMatched = true;
+                    }
+                }
+            });
         });
-    });
+    }
 });
 
-client.login('NzA5ODc1MjIwOTkwOTE4Njc3.Xr2Piw.6OQDoGbqgLnxdkLeKkqNkCC6upU');
+client.login('NzA5ODc1MjIwOTkwOTE4Njc3.Xr2UKQ.thKzwEdf-9z7pkphE82tW_n0RI4');
